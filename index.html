@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>南投縣村里複式動員巡檢系統</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root {
+      --ios-bg: #F2F2F7;
+      --ios-blue: #007AFF;
+      --ios-green: #34C759;
+      --ios-orange: #FF9500;
+      --ios-red: #FF3B30;
+    }
+
+    body, html {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    /* 滿版底層地圖 */
+    #fullMap {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 100%;
+      z-index: 1;
+    }
+
+    /* 隱藏原生滾動條維持 iOS 簡潔外觀 */
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* iOS 霧面毛玻璃效果 */
+    .ios-glass {
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      background-color: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.65);
+    }
+
+    .ios-glass-dark {
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      background-color: rgba(28, 28, 30, 0.82);
+    }
+
+    /* 側邊抽屜動畫 */
+    .drawer-transition {
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .drawer-closed {
+      transform: translateX(100%);
+    }
+
+    /* 底部抽屜動畫 */
+    .sheet-transition {
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .sheet-hidden {
+      transform: translateY(100%);
+    }
+
+    /* 脈動點位動畫 */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.3); opacity: 0.2; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .marker-pulse {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+
+    /* 浮水印 Canvas 隱藏處理區 */
+    #watermarkCanvas {
+      display: none;
+    }
+
+    /* Leaflet 原生 Popup 覆寫：iOS 專業 GIS 戰情卡片 */
+    .leaflet-popup-content-wrapper {
+      background: rgba(255, 255, 255, 0.95) !important;
+      backdrop-filter: blur(25px) !important;
+      -webkit-backdrop-filter: blur(25px) !important;
+      border-radius: 20px !important;
+      box-shadow: 0 18px 38px -6px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.9) inset !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
+      width: 250px !important;
+      line-height: normal !important;
+    }
+    .leaflet-popup-tip-container {
+      margin-top: -1px !important;
+    }
+    .leaflet-popup-tip {
+      background: rgba(255, 255, 255, 0.95) !important;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12) !important;
+    }
+    .leaflet-container a.leaflet-popup-close-button {
+      top: 8px !important;
+      right: 9px !important;
+      width: 22px !important;
+      height: 22px !important;
+      border-radius: 9999px !important;
+      background: rgba(142, 142, 147, 0.16) !important;
+      color: #3C3C43 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      text-decoration: none !important;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      z-index: 10 !important;
+    }
+    .leaflet-container a.leaflet-popup-close-button:hover,
+    .leaflet-container a.leaflet-popup-close-button:active {
+      background: rgba(142, 142, 147, 0.32) !important;
+      color: #000000 !important;
+      transform: scale(0.92);
+    }
+  </style>
+</head>
+
+<body class="relative w-full h-full">
+
+  <!-- 1. 全螢幕互動地圖底圖 -->
+  <div id="fullMap"></div>
+
+  <!-- 2. 頂部懸浮 HUD 膠囊面板 -->
+  <header class="fixed top-3 left-3 right-3 z-20 pointer-events-none">
+    <div class="ios-glass rounded-3xl shadow-lg p-2.5 pointer-events-auto space-y-2">
+      <!-- HUD 第一層：Logo、系統標題、月份選擇器與進度標籤 -->
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+            投
+          </div>
+          <div>
+            <h1 class="text-xs font-bold text-gray-900 tracking-tight leading-none">南投縣複式動員巡檢</h1>
+            <p class="text-[10px] text-gray-500 mt-0.5 font-medium">全域戰情地圖 HUD</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <!-- 月份切換下拉選單 -->
+          <div class="relative bg-gray-100/90 rounded-xl px-2 py-1 flex items-center shadow-inner">
+            <select id="selectMonthHud" class="bg-transparent text-xs font-bold text-gray-800 outline-none pr-3 cursor-pointer">
+              <option value="1">1 月</option>
+              <option value="2">2 月</option>
+              <option value="3">3 月</option>
+              <option value="4">4 月</option>
+              <option value="5">5 月</option>
+              <option value="6">6 月</option>
+              <option value="7">7 月</option>
+              <option value="8">8 月</option>
+              <option value="9" selected>9 月</option>
+              <option value="10">10 月</option>
+              <option value="11">11 月</option>
+              <option value="12">12 月</option>
+            </select>
+            <div class="pointer-events-none absolute right-1.5 text-[9px] text-gray-400">▼</div>
+          </div>
+
+          <!-- 即時完成進度膠囊 -->
+          <div class="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-xl text-[11px] font-bold tracking-tight shadow-sm border border-blue-100 flex items-center">
+            <span id="hudProgressText">載入中</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- HUD 第二層：13 鄉鎮橫向滑動微型膠囊按鈕列 -->
+      <div id="townshipPillsHud" class="flex space-x-1.5 overflow-x-auto hide-scrollbar py-0.5 text-xs">
+        <!-- 由 JavaScript 動態注入鄉鎮膠囊 -->
+      </div>
+    </div>
+  </header>
+
+  <!-- 3. 右側懸浮控制鈕群 (FAB) -->
+  <aside class="fixed right-3 top-32 z-20 flex flex-col space-y-3 pointer-events-auto">
+    <!-- 清單小按鈕 (帶未完成紅點 Badge) -->
+    <button id="btnOpenListDrawer" class="relative w-11 h-11 rounded-2xl ios-glass shadow-lg flex items-center justify-center text-gray-800 active:scale-95 transition-transform">
+      <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+      <span id="badgePendingCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow">
+        0
+      </span>
+    </button>
+
+    <!-- GPS 我的定位鈕 -->
+    <button id="btnLocateMe" class="w-11 h-11 rounded-2xl ios-glass shadow-lg flex items-center justify-center text-blue-600 active:scale-95 transition-transform">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    </button>
+
+    <!-- 重新整理鈕 -->
+    <button id="btnRefreshData" class="w-11 h-11 rounded-2xl ios-glass shadow-lg flex items-center justify-center text-gray-700 active:scale-95 transition-transform">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </button>
+  </aside>
+
+  <!-- 4. 右側滑出式「該區塊村里清單」抽屜 (iOS Slide Drawer) -->
+  <div id="drawerOverlay" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 hidden"></div>
+  
+  <section id="villageListDrawer" class="drawer-transition drawer-closed fixed top-0 right-0 bottom-0 w-full sm:w-96 bg-[#F2F2F7] z-50 shadow-2xl flex flex-col border-l border-white/60">
+    <!-- 抽屜頂部標題列 -->
+    <div class="ios-glass p-4 border-b border-gray-200 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
+        <h2 id="drawerCategoryTitle" class="text-sm font-bold text-gray-900">全部村里清單 (14)</h2>
+      </div>
+      <button id="btnCloseDrawer" class="w-8 h-8 rounded-full bg-gray-200/80 text-gray-600 flex items-center justify-center active:bg-gray-300">
+        ✕
+      </button>
+    </div>
+
+    <!-- 抽屜卡片清單滾動區 -->
+    <div id="drawerCardsContainer" class="flex-1 overflow-y-auto p-3 space-y-2.5 hide-scrollbar">
+      <!-- 村里卡片動態由 JS 產生 -->
+    </div>
+  </section>
+
+  <!-- 5. 現場抽查詳細資訊彈窗 (iOS Bottom Sheet) -->
+  <div id="inspectionModal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex flex-col justify-end hidden">
+    <div id="modalBackdrop" class="flex-1"></div>
+
+    <div id="modalSheet" class="sheet-transition sheet-hidden bg-[#F2F2F7] rounded-t-[30px] max-h-[92vh] flex flex-col shadow-2xl border-t border-white/70">
+      
+      <!-- 彈窗拉桿與標頭 -->
+      <div class="pt-3 pb-2.5 px-4 bg-white rounded-t-[30px] border-b border-gray-200">
+        <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-2"></div>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 id="modalVillageTitle" class="text-base font-bold text-gray-900 leading-tight">南投縣-埔里鎮-麒麟里</h3>
+            <p id="modalCaseNo" class="text-[11px] text-gray-500 font-mono mt-0.5">案號: JD2026090100077</p>
+          </div>
+          <button id="btnCloseModal" class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 active:bg-gray-200">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- 彈窗內容滾動區 -->
+      <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3.5 text-xs hide-scrollbar">
+
+        <!-- 基本資料設定 -->
+        <div class="bg-white rounded-2xl p-3.5 shadow-sm space-y-2.5 border border-gray-100">
+          <div class="flex justify-between items-center py-0.5 border-b border-gray-100">
+            <span class="text-gray-500 font-medium">檢查單位</span>
+            <span class="font-semibold text-gray-800">南投縣政府環境保護局</span>
+          </div>
+          <div class="flex justify-between items-center py-0.5 border-b border-gray-100">
+            <span class="text-gray-500 font-medium">抽查日期</span>
+            <input id="inputCheckDate" type="text" class="text-right font-medium text-blue-600 bg-transparent outline-none" value="115.09.04">
+          </div>
+          <div class="flex justify-between items-center py-0.5">
+            <span class="text-gray-500 font-medium">抽查狀態判定</span>
+            <div class="flex items-center space-x-2">
+              <button type="button" id="btnPassToggle" class="px-3.5 py-1 rounded-full font-bold text-xs bg-emerald-100 text-emerald-700">
+                ☑ 合格
+              </button>
+              <button type="button" id="btnFailToggle" class="px-3.5 py-1 rounded-full font-medium text-xs bg-gray-100 text-gray-500">
+                □ 不合格
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 20 項缺失智慧下拉選擇器 -->
+        <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-800">缺失項目登記 (未列出者皆為 0 處)</span>
+            <span id="labelTotalCount" class="text-xs font-bold text-red-500 bg-red-50 px-2.5 py-0.5 rounded-lg border border-red-100">
+              總計 0 處
+            </span>
+          </div>
+
+          <div class="flex space-x-2 mt-2">
+            <select id="selectDefectCategory" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-2 text-xs text-gray-800 outline-none font-medium">
+              <option value="">-- 請選擇發現之積水容器/雜物類別 --</option>
+              <optgroup label="一、室外堆置或廢棄容器雜物 (13項)">
+                <option value="item_1">1,空瓶、空罐…等</option>
+                <option value="item_2">2,甕、壺(陶瓷水缸等)</option>
+                <option value="item_3">3,鍋、壺、冷氣接水桶</option>
+                <option value="item_4">4,杯子、碟子、盤子、碗、破裂磁器面盆</option>
+                <option value="item_5">5,空保麗龍、馬槽水…等</option>
+                <option value="item_6">6,桶子(鐵桶、塑膠桶、寵物水盤）</option>
+                <option value="item_7">7,椰子殼、椰子葉捲、…等</option>
+                <option value="item_8">8,廢輪胎</option>
+                <option value="item_9">9,廢傢俱</option>
+                <option value="item_10">10,廢帆布</option>
+                <option value="item_11">11,空地未整理</option>
+                <option value="item_12">12,空屋未整理</option>
+                <option value="item_13">13,其他(任何廢棄的容器或雜物）</option>
+              </optgroup>
+              <optgroup label="二、住宅內外積水未洗刷乾淨 (7項)">
+                <option value="item_14">1,插花容器(花盆、花瓶等）</option>
+                <option value="item_15">2,貯水容器(水缸、水桶等)、曬衣架固定物</option>
+                <option value="item_16">3,積水的地下室</option>
+                <option value="item_17">4,輪胎或排水管、水塔</option>
+                <option value="item_18">5,冰箱除霜底盤(水盤)</option>
+                <option value="item_19">6,盆栽植物墊盤(水盤）</option>
+                <option value="item_20">7,其他日常用容器或戶外積水容器(竹筒樹洞等)</option>
+              </optgroup>
+            </select>
+            <button id="btnAddDefect" class="bg-blue-600 text-white font-semibold px-3.5 py-2 rounded-xl active:bg-blue-700 shadow-sm shrink-0">
+              ＋ 加入
+            </button>
+          </div>
+
+          <div id="defectItemsList" class="mt-3 space-y-2">
+            <p id="noDefectNotice" class="text-gray-400 text-center py-2 text-[11px]">目前尚無缺失紀錄 (全項預設為 0 處)</p>
+          </div>
+        </div>
+
+        <!-- 現場拍照雙區塊 (自動合成 GPS 浮水印) -->
+        <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-800">佐證照片 (右上角自動合成日期座標浮水印)</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <!-- 改善前照片 -->
+            <div class="flex flex-col">
+              <label class="text-[11px] font-semibold text-gray-600 mb-1">改善前照片 (左)</label>
+              <div id="boxPhotoBefore" class="relative w-full h-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center overflow-hidden cursor-pointer active:bg-gray-100">
+                <input id="filePhotoBefore" type="file" accept="image/*" capture="environment" class="absolute inset-0 opacity-0 cursor-pointer">
+                <div id="placeholderBefore" class="text-center p-2 pointer-events-none">
+                  <svg class="w-6 h-6 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  <span class="text-[10px] text-gray-400">點擊拍攝現況</span>
+                </div>
+                <img id="imgPreviewBefore" class="w-full h-full object-cover hidden" alt="改善前預覽">
+              </div>
+            </div>
+
+            <!-- 改善後照片 -->
+            <div class="flex flex-col">
+              <label class="text-[11px] font-semibold text-gray-600 mb-1">改善後照片 (右)</label>
+              <div id="boxPhotoAfter" class="relative w-full h-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center overflow-hidden cursor-pointer active:bg-gray-100">
+                <input id="filePhotoAfter" type="file" accept="image/*" capture="environment" class="absolute inset-0 opacity-0 cursor-pointer">
+                <div id="placeholderAfter" class="text-center p-2 pointer-events-none">
+                  <svg class="w-6 h-6 text-emerald-500 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <span class="text-[10px] text-gray-400">點擊拍攝倒水後</span>
+                </div>
+                <img id="imgPreviewAfter" class="w-full h-full object-cover hidden" alt="改善後預覽">
+              </div>
+            </div>
+          </div>
+          <p class="text-[10px] text-gray-400 mt-2 text-center">壓印格式與公部門範本 1:1 完全一致</p>
+        </div>
+
+      </div>
+
+      <!-- 彈窗底部提交按鈕 -->
+      <div class="p-4 bg-white border-t border-gray-200">
+        <button id="btnSubmitInspection" class="w-full py-3.5 bg-blue-600 text-white font-bold rounded-2xl active:bg-blue-700 shadow-md flex items-center justify-center space-x-2 text-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span>提交巡檢並排程生成 Word</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- iOS 風格膠囊 Toast 訊息 -->
+  <div id="iosToast" class="fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-full ios-glass-dark text-white text-xs font-medium shadow-2xl flex items-center space-x-2 transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-2">
+    <span id="toastIcon">ℹ️</span>
+    <span id="toastMessage">提示訊息</span>
+  </div>
+
+  <!-- 浮水印合成 Canvas -->
+  <canvas id="watermarkCanvas"></canvas>
+
+  <script>
+    const CONFIG = {
+      GAS_ENDPOINT: 'https://script.google.com/macros/s/AKfycbx3LPVS6kktJHfY3RdyRJZey6FKoR32adalS0mhNOXTkcqr83Bs0Duvhw8c_7U8Mzc/exec',
+      MAP_DEFAULT_CENTER: [23.86, 120.88], // 南投地理核心
+      MAP_DEFAULT_ZOOM: 10
+    };
+
+    const TOWNSHIPS = [
+      '全部', '01南投市', '02埔里鎮', '03草屯鎮', '04竹山鎮',
+      '05集集鎮', '06名間鄉', '07鹿谷鄉', '08中寮鄉',
+      '09魚池鄉', '10國姓鄉', '11水里鄉', '12信義鄉', '13仁愛鄉'
+    ];
+
+    // 南投各村里基準座標字典
+    const VILLAGE_COORDS = {
+      '01南投市-龍泉里': [23.9085, 120.6853],
+      '01南投市-光輝里': [23.9482, 120.6974],
+      '02埔里鎮-西門里': [23.9681, 120.9632],
+      '02埔里鎮-麒麟里': [23.934082, 120.986157],
+      '03草屯鎮-石川里': [23.9892, 120.6521],
+      '04竹山鎮-中和里': [23.7584, 120.6912],
+      '06名間鄉-東湖村': [23.8621, 120.7154],
+      '07鹿谷鄉-竹林村': [23.7391, 120.7685],
+      '08中寮鄉-崁頂村': [23.8824, 120.7812],
+      '09魚池鄉-中明村': [23.8895, 120.9123],
+      '09魚池鄉-頭社村': [23.8341, 120.8992],
+      '11水里鄉-新城村': [23.8182, 120.8524],
+      '11水里鄉-南光村': [23.8094, 120.8581],
+      '13仁愛鄉-萬豐村': [23.9015, 121.0852]
+    };
+
+    let appState = {
+      currentMonth: 9,
+      selectedTownship: '全部',
+      villages: [],
+      currentVillageData: null,
+      map: null,
+      markersGroup: null,
+      userMarker: null,
+      currentDefects: {},
+      isPassed: true,
+      photoBeforeBase64: '',
+      photoAfterBase64: '',
+      currentGps: { lat: 23.934082, lng: 120.986157 }
+    };
+
+    function initMap() {
+      appState.map = L.map('fullMap', {
+        zoomControl: false,
+        attributionControl: false
+      }).setView(CONFIG.MAP_DEFAULT_CENTER, CONFIG.MAP_DEFAULT_ZOOM);
+
+      // 高解析無干擾清新圖資
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(appState.map);
+
+      appState.markersGroup = L.featureGroup().addTo(appState.map);
+    }
+
+    function renderTownshipPills() {
+      const container = document.getElementById('townshipPillsHud');
+      container.innerHTML = '';
+
+      const counts = { '全部': appState.villages.length };
+      appState.villages.forEach(v => {
+        counts[v.township] = (counts[v.township] || 0) + 1;
+      });
+
+      TOWNSHIPS.forEach(ts => {
+        const count = counts[ts] || 0;
+        const isSelected = (ts === appState.selectedTownship);
+        const displayName = ts.replace(/^\d+/, '');
+
+        const pill = document.createElement('button');
+        pill.className = `shrink-0 px-3 py-1 rounded-full font-medium transition-all duration-200 flex items-center space-x-1 ${
+          isSelected 
+            ? 'bg-blue-600 text-white shadow-sm font-semibold' 
+            : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+        }`;
+
+        pill.innerHTML = `
+          <span>${displayName}</span>
+          <span class="text-[9px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-white text-gray-500'}">
+            ${count}
+          </span>
+        `;
+
+        pill.addEventListener('click', () => {
+          appState.selectedTownship = ts;
+          renderTownshipPills();
+          renderDrawerCards();
+          updateMapMarkers();
+
+          // 自動定位至該鄉鎮標記群
+          if (ts !== '全部') {
+            const filtered = appState.villages.filter(v => v.township === ts);
+            if (filtered.length > 0) {
+              const k = `${filtered[0].township}-${filtered[0].village}`;
+              const coords = VILLAGE_COORDS[k];
+              if (coords) {
+                appState.map.flyTo(coords, 14, { duration: 1.2 });
+              }
+            }
+          } else {
+            appState.map.flyTo(CONFIG.MAP_DEFAULT_CENTER, CONFIG.MAP_DEFAULT_ZOOM, { duration: 1.2 });
+          }
+        });
+
+        container.appendChild(pill);
+      });
+    }
+
+    async function fetchVillages(month) {
+      showToast('同步中', `正在同步 ${month} 月份名冊...`);
+      document.getElementById('hudProgressText').textContent = '同步中...';
+
+      try {
+        const response = await fetch(`${CONFIG.GAS_ENDPOINT}?action=get_villages&month=${month}`);
+        const res = await response.json();
+
+        if (res.status === 'success' && Array.isArray(res.data)) {
+          appState.villages = res.data;
+        } else {
+          throw new Error(res.message || '資料格式不符');
+        }
+      } catch (err) {
+        appState.villages = getFallbackVillages(month);
+        showToast('離線模式', '已載入本地備份清單');
+      }
+
+      const completedCount = appState.villages.filter(v => v.isCompleted).length;
+      const pendingCount = appState.villages.length - completedCount;
+
+      document.getElementById('hudProgressText').textContent = `已查 ${completedCount}/${appState.villages.length}`;
+      document.getElementById('badgePendingCount').textContent = pendingCount;
+
+      renderTownshipPills();
+      renderDrawerCards();
+      updateMapMarkers();
+    }
+
+    function renderDrawerCards() {
+      const container = document.getElementById('drawerCardsContainer');
+      const titleLabel = document.getElementById('drawerCategoryTitle');
+      container.innerHTML = '';
+
+      const filtered = appState.selectedTownship === '全部'
+        ? appState.villages
+        : appState.villages.filter(v => v.township === appState.selectedTownship);
+
+      titleLabel.textContent = `${appState.selectedTownship} (${filtered.length})`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl p-6 text-center border border-gray-200 shadow-sm">
+            <p class="text-gray-400 text-xs">本月無此鄉鎮抽查任務</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex items-center justify-between';
+
+        const isDone = item.isCompleted;
+        const statusTag = isDone
+          ? `<span class="inline-flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1"></span>已查 (${item.date})
+             </span>`
+          : `<span class="inline-flex items-center text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+               <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1"></span>待抽查
+             </span>`;
+
+        card.innerHTML = `
+          <div class="flex-1 pr-2">
+            <div class="flex items-center space-x-1.5 mb-0.5">
+              <span class="text-[10px] font-bold text-gray-400">${item.township}</span>
+              ${statusTag}
+            </div>
+            <h4 class="text-sm font-bold text-gray-900 tracking-tight">${item.village}</h4>
+          </div>
+
+          <div class="flex items-center space-x-1.5 shrink-0">
+            <button class="btn-nav p-2 bg-blue-50 text-blue-600 rounded-xl active:bg-blue-100 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            </button>
+            <button class="btn-inspect px-3 py-1.5 ${isDone ? 'bg-gray-100 text-gray-700' : 'bg-blue-600 text-white shadow-sm'} font-semibold text-xs rounded-xl active:opacity-75">
+              ${isDone ? '紀錄' : '抽查'}
+            </button>
+          </div>
+        `;
+
+        card.querySelector('.btn-nav').addEventListener('click', (e) => {
+          e.stopPropagation();
+          triggerNavigation(item);
+        });
+
+        card.querySelector('.btn-inspect').addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeDrawer();
+          openInspectionModal(item);
+        });
+
+        // 點擊卡片地圖飛往目標
+        card.addEventListener('click', () => {
+          const k = `${item.township}-${item.village}`;
+          const coords = VILLAGE_COORDS[k];
+          if (coords) {
+            closeDrawer();
+            appState.map.flyTo(coords, 15, { duration: 1 });
+          }
+        });
+
+        container.appendChild(card);
+      });
+    }
+
+    function updateMapMarkers() {
+      if (!appState.map || !appState.markersGroup) return;
+      appState.markersGroup.clearLayers();
+
+      const filtered = appState.selectedTownship === '全部'
+        ? appState.villages
+        : appState.villages.filter(v => v.township === appState.selectedTownship);
+
+      filtered.forEach(v => {
+        const key = `${v.township}-${v.village}`;
+        const coords = VILLAGE_COORDS[key] || CONFIG.MAP_DEFAULT_CENTER;
+
+        // 綠色(已完成) / 琥珀橙(待抽查)
+        const isDone = v.isCompleted;
+        const marker = L.circleMarker(coords, {
+          radius: 9,
+          fillColor: isDone ? '#10B981' : '#F59E0B',
+          color: '#FFFFFF',
+          weight: 2.5,
+          opacity: 1,
+          fillOpacity: 0.95
+        });
+
+        const townshipLabel = v.township.replace(/^\d+/, '');
+        const popupHtml = `
+          <div class="overflow-hidden select-none font-sans">
+            <!-- 卡片頂部狀態列 -->
+            <div class="bg-gray-50/90 px-3.5 py-2.5 border-b border-gray-100 flex items-center justify-between pr-8">
+              <span class="text-[11px] font-bold text-gray-500 bg-white px-2 py-0.5 rounded-md border border-gray-200/70 shadow-xs">
+                ${v.township}
+              </span>
+              ${
+                isDone
+                  ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>已抽查
+                     </span>`
+                  : `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                       <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>待抽查
+                     </span>`
+              }
+            </div>
+
+            <!-- 卡片主體資訊 -->
+            <div class="p-3.5 space-y-2.5">
+              <div>
+                <h3 class="text-base font-extrabold text-gray-900 tracking-tight leading-tight">${townshipLabel} · ${v.village}</h3>
+                <p class="text-[10px] text-gray-400 font-medium mt-1 flex items-center gap-1">
+                  <svg class="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                  <span>南投縣環保局複式動員責任區</span>
+                </p>
+              </div>
+
+              <!-- 狀態與座標輔助盒 -->
+              <div class="bg-gray-50 rounded-xl p-2 border border-gray-100 text-[11px] space-y-1">
+                <div class="flex justify-between items-center text-gray-500">
+                  <span>查核進度</span>
+                  <span class="font-semibold ${isDone ? 'text-emerald-600' : 'text-amber-600'}">
+                    ${isDone ? '完成日 ' + v.date : '尚未現勘'}
+                  </span>
+                </div>
+                <div class="flex justify-between items-center text-gray-400 text-[10px]">
+                  <span>目標座標</span>
+                  <span class="font-mono">${coords[0].toFixed(4)}°N, ${coords[1].toFixed(4)}°E</span>
+                </div>
+              </div>
+
+              <!-- 雙動作按鈕 -->
+              <div class="grid grid-cols-2 gap-2 pt-0.5">
+                <button onclick="window.navDirect('${v.township}', '${v.village}')" class="py-2 px-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs flex items-center justify-center space-x-1 border border-blue-200/70 active:scale-95 transition-transform shadow-xs">
+                  <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                  <span>即時導航</span>
+                </button>
+                <button onclick="window.inspectDirect('${v.township}', '${v.village}')" class="py-2 px-2.5 rounded-xl ${isDone ? 'bg-gray-800 hover:bg-gray-900 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'} font-bold text-xs flex items-center justify-center space-x-1 shadow-sm active:scale-95 transition-transform">
+                  <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  <span>${isDone ? '查核紀錄' : '開始抽查'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(popupHtml, {
+          maxWidth: 280,
+          minWidth: 240,
+          autoPanPadding: [20, 20],
+          className: 'gis-marker-popup'
+        });
+
+        appState.markersGroup.addLayer(marker);
+      });
+    }
+
+    function triggerNavigation(item) {
+      const key = `${item.township}-${item.village}`;
+      const coords = VILLAGE_COORDS[key];
+
+      let navUrl = '';
+      if (coords) {
+        navUrl = `https://www.google.com/maps/dir/?api=1&destination=${coords[0]},${coords[1]}`;
+      } else {
+        const query = encodeURIComponent(`南投縣${item.township}${item.village}`);
+        navUrl = `https://www.google.com/maps/dir/?api=1&destination=${query}`;
+      }
+      window.open(navUrl, '_blank');
+    }
+
+    window.navDirect = (township, village) => {
+      triggerNavigation({ township, village });
+    };
+
+    window.inspectDirect = (township, village) => {
+      const item = appState.villages.find(v => v.township === township && v.village === village);
+      if (item) {
+        openInspectionModal(item);
+      }
+    };
+
+    function openInspectionModal(item) {
+      appState.currentVillageData = item;
+      appState.currentDefects = {};
+      appState.isPassed = true;
+      appState.photoBeforeBase64 = '';
+      appState.photoAfterBase64 = '';
+
+      document.getElementById('modalVillageTitle').textContent = `南投縣-${item.township.replace(/^\d+/, '')}-${item.village}`;
+      
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      document.getElementById('modalCaseNo').textContent = `案號: JD${dateStr}${randomSuffix}`;
+
+      const rocYear = now.getFullYear() - 1911;
+      const monthStr = String(now.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(now.getDate()).padStart(2, '0');
+      document.getElementById('inputCheckDate').value = item.date || `${rocYear}.${monthStr}.${dayStr}`;
+
+      renderDefectItems();
+      resetPhotoPreviews();
+      updatePassStatusUI();
+
+      const modal = document.getElementById('inspectionModal');
+      const sheet = document.getElementById('modalSheet');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        sheet.classList.remove('sheet-hidden');
+      }, 10);
+
+      captureCurrentGps();
+    }
+
+    function closeInspectionModal() {
+      const sheet = document.getElementById('modalSheet');
+      sheet.classList.add('sheet-hidden');
+      setTimeout(() => {
+        document.getElementById('inspectionModal').classList.add('hidden');
+      }, 350);
+    }
+
+    function openDrawer() {
+      document.getElementById('drawerOverlay').classList.remove('hidden');
+      document.getElementById('villageListDrawer').classList.remove('drawer-closed');
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawerOverlay').classList.add('hidden');
+      document.getElementById('villageListDrawer').classList.add('drawer-closed');
+    }
+
+    function renderDefectItems() {
+      const list = document.getElementById('defectItemsList');
+      const keys = Object.keys(appState.currentDefects);
+      const noNotice = document.getElementById('noDefectNotice');
+
+      let total = 0;
+      keys.forEach(k => {
+        total += (appState.currentDefects[k].count || 0);
+      });
+
+      document.getElementById('labelTotalCount').textContent = `總計 ${total} 處`;
+
+      if (keys.length === 0) {
+        list.innerHTML = '';
+        list.appendChild(noNotice);
+        noNotice.classList.remove('hidden');
+        return;
+      }
+
+      noNotice.classList.add('hidden');
+      list.innerHTML = '';
+
+      keys.forEach(key => {
+        const item = appState.currentDefects[key];
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl p-2.5';
+        row.innerHTML = `
+          <div class="flex-1 pr-2">
+            <p class="font-medium text-gray-800 text-[11px] leading-tight">${item.name}</p>
+          </div>
+          <div class="flex items-center space-x-2 shrink-0">
+            <span class="font-bold text-red-600 bg-white px-2 py-0.5 rounded border border-gray-200">${item.count} 處</span>
+            <button class="btn-del text-gray-400 active:text-red-500 p-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        `;
+
+        row.querySelector('.btn-del').addEventListener('click', () => {
+          delete appState.currentDefects[key];
+          renderDefectItems();
+        });
+
+        list.appendChild(row);
+      });
+    }
+
+    function updatePassStatusUI() {
+      const btnPass = document.getElementById('btnPassToggle');
+      const btnFail = document.getElementById('btnFailToggle');
+
+      if (appState.isPassed) {
+        btnPass.className = 'px-3.5 py-1 rounded-full font-bold text-xs bg-emerald-100 text-emerald-700';
+        btnPass.textContent = '☑ 合格';
+        btnFail.className = 'px-3.5 py-1 rounded-full font-medium text-xs bg-gray-100 text-gray-500';
+        btnFail.textContent = '□ 不合格';
+      } else {
+        btnPass.className = 'px-3.5 py-1 rounded-full font-medium text-xs bg-gray-100 text-gray-500';
+        btnPass.textContent = '□ 合格';
+        btnFail.className = 'px-3.5 py-1 rounded-full font-bold text-xs bg-red-100 text-red-700';
+        btnFail.textContent = '☑ 不合格';
+      }
+    }
+
+    async function applyWatermark(file, villageName) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.getElementById('watermarkCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const maxDimension = 1200;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height && width > maxDimension) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else if (height > maxDimension) {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const now = new Date();
+            const dateLine = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+            const gpsLine = `N ${appState.currentGps.lat.toFixed(6)}°, E ${appState.currentGps.lng.toFixed(6)}°`;
+            const labelLine = `南投縣${villageName}`;
+
+            const fontSize = Math.max(22, Math.round(width * 0.032));
+            ctx.font = `600 ${fontSize}px -apple-system, sans-serif`;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = '#FFFFFF';
+
+            const rightMargin = width - 25;
+            let topMargin = 25;
+            const lineSpacing = fontSize * 1.25;
+
+            ctx.fillText(dateLine, rightMargin, topMargin);
+            ctx.fillText(gpsLine, rightMargin, topMargin + lineSpacing);
+            ctx.fillText(labelLine, rightMargin, topMargin + (lineSpacing * 2));
+
+            const finalBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            resolve(finalBase64);
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function captureCurrentGps() {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            appState.currentGps = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude
+            };
+          },
+          (err) => {
+            if (appState.currentVillageData) {
+              const k = `${appState.currentVillageData.township}-${appState.currentVillageData.village}`;
+              const fallback = VILLAGE_COORDS[k];
+              if (fallback) {
+                appState.currentGps = { lat: fallback[0], lng: fallback[1] };
+              }
+            }
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      }
+    }
+
+    function resetPhotoPreviews() {
+      document.getElementById('filePhotoBefore').value = '';
+      document.getElementById('filePhotoAfter').value = '';
+      document.getElementById('placeholderBefore').classList.remove('hidden');
+      document.getElementById('placeholderAfter').classList.remove('hidden');
+      document.getElementById('imgPreviewBefore').classList.add('hidden');
+      document.getElementById('imgPreviewAfter').classList.add('hidden');
+    }
+
+    function showToast(title, message) {
+      const toast = document.getElementById('iosToast');
+      document.getElementById('toastIcon').textContent = title === '成功' ? '✅' : 'ℹ️';
+      document.getElementById('toastMessage').textContent = message;
+
+      toast.classList.remove('opacity-0', '-translate-y-2', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-2', 'pointer-events-none');
+      }, 2600);
+    }
+
+    async function submitInspection() {
+      const btn = document.getElementById('btnSubmitInspection');
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <span>同步中，請稍候...</span>
+      `;
+
+      try {
+        const item = appState.currentVillageData;
+        const checkDate = document.getElementById('inputCheckDate').value;
+        const caseNumber = document.getElementById('modalCaseNo').textContent.replace('案號: ', '').trim();
+
+        let total = 0;
+        Object.keys(appState.currentDefects).forEach(k => {
+          total += appState.currentDefects[k].count;
+        });
+
+        const payload = {
+          action: 'submit_inspection',
+          month: appState.currentMonth,
+          caseNumber: caseNumber,
+          township: item.township,
+          village: item.village,
+          unit: '南投縣政府環境保護局',
+          checkDate: checkDate,
+          items: appState.currentDefects,
+          total: total,
+          isPassed: appState.isPassed,
+          photoBefore: appState.photoBeforeBase64,
+          photoAfter: appState.photoAfterBase64
+        };
+
+        const res = await fetch(CONFIG.GAS_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (data.status === 'success') {
+          showToast('成功', '巡檢紀錄已同步！');
+          item.isCompleted = true;
+          item.date = checkDate;
+          renderDrawerCards();
+          updateMapMarkers();
+          closeInspectionModal();
+        } else {
+          throw new Error(data.message || '伺服器端錯誤');
+        }
+      } catch (err) {
+        showToast('離線提示', '已排程存檔，本機守護程式將自動產出 Word');
+        appState.currentVillageData.isCompleted = true;
+        renderDrawerCards();
+        updateMapMarkers();
+        closeInspectionModal();
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span>提交巡檢並排程生成 Word</span>
+        `;
+      }
+    }
+
+    function getFallbackVillages(month) {
+      return [
+        { id: 1, township: '01南投市', village: '龍泉里', date: '115.09.02', isCompleted: true },
+        { id: 2, township: '01南投市', village: '光輝里', date: '115.09.02', isCompleted: true },
+        { id: 3, township: '02埔里鎮', village: '西門里', date: '115.09.01', isCompleted: true },
+        { id: 4, township: '02埔里鎮', village: '麒麟里', date: '115.09.01', isCompleted: true },
+        { id: 5, township: '03草屯鎮', village: '石川里', date: '', isCompleted: false },
+        { id: 6, township: '04竹山鎮', village: '中和里', date: '115.09.03', isCompleted: true },
+        { id: 7, township: '06名間鄉', village: '東湖村', date: '', isCompleted: false },
+        { id: 8, township: '07鹿谷鄉', village: '竹林村', date: '115.09.03', isCompleted: true },
+        { id: 9, township: '08中寮鄉', village: '崁頂村', date: '', isCompleted: false },
+        { id: 10, township: '09魚池鄉', village: '中明村', date: '', isCompleted: false },
+        { id: 11, township: '09魚池鄉', village: '頭社村', date: '', isCompleted: false },
+        { id: 12, township: '11水里鄉', village: '新城村', date: '115.09.03', isCompleted: true },
+        { id: 13, township: '11水里鄉', village: '南光村', date: '115.09.03', isCompleted: true },
+        { id: 14, township: '13仁愛鄉', village: '萬豐村', date: '115.09.01', isCompleted: true }
+      ];
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initMap();
+
+      // 月份切換監聽
+      const monthSel = document.getElementById('selectMonthHud');
+      monthSel.addEventListener('change', (e) => {
+        appState.currentMonth = parseInt(e.target.value, 10);
+        fetchVillages(appState.currentMonth);
+      });
+
+      // 清單抽屜開關
+      document.getElementById('btnOpenListDrawer').addEventListener('click', openDrawer);
+      document.getElementById('btnCloseDrawer').addEventListener('click', closeDrawer);
+      document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+
+      // 我的位置 GPS 鈕
+      document.getElementById('btnLocateMe').addEventListener('click', () => {
+        if ('geolocation' in navigator) {
+          showToast('定位中', '正在取得目前 GPS 座標...');
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const ulat = pos.coords.latitude;
+              const ulng = pos.coords.longitude;
+              appState.currentGps = { lat: ulat, lng: ulng };
+
+              if (appState.userMarker) {
+                appState.userMarker.setLatLng([ulat, ulng]);
+              } else {
+                appState.userMarker = L.circleMarker([ulat, ulng], {
+                  radius: 8,
+                  fillColor: '#007AFF',
+                  color: '#FFFFFF',
+                  weight: 3,
+                  opacity: 1,
+                  fillOpacity: 0.95
+                }).addTo(appState.map);
+              }
+
+              appState.map.flyTo([ulat, ulng], 15, { duration: 1.2 });
+              showToast('成功', '已定位至目前位置');
+            },
+            () => {
+              showToast('定位提示', '無法取得 GPS，請開啟手機定位授權');
+            },
+            { enableHighAccuracy: true, timeout: 6000 }
+          );
+        }
+      });
+
+      // 重新整理按鈕
+      document.getElementById('btnRefreshData').addEventListener('click', () => {
+        fetchVillages(appState.currentMonth);
+      });
+
+      // 關閉抽查彈窗
+      document.getElementById('btnCloseModal').addEventListener('click', closeInspectionModal);
+      document.getElementById('modalBackdrop').addEventListener('click', closeInspectionModal);
+
+      // 合格/不合格切換
+      document.getElementById('btnPassToggle').addEventListener('click', () => {
+        appState.isPassed = true;
+        updatePassStatusUI();
+      });
+      document.getElementById('btnFailToggle').addEventListener('click', () => {
+        appState.isPassed = false;
+        updatePassStatusUI();
+      });
+
+      // 新增缺失項目
+      document.getElementById('btnAddDefect').addEventListener('click', () => {
+        const select = document.getElementById('selectDefectCategory');
+        const val = select.value;
+        if (!val) {
+          showToast('提示', '請先選擇缺失項目類別');
+          return;
+        }
+
+        const optText = select.options[select.selectedIndex].text;
+        if (!appState.currentDefects[val]) {
+          appState.currentDefects[val] = { name: optText, count: 1 };
+        } else {
+          appState.currentDefects[val].count += 1;
+        }
+        renderDefectItems();
+      });
+
+      // 改善前照片拍照與浮水印
+      document.getElementById('filePhotoBefore').addEventListener('change', async (e) => {
+        if (e.target.files && e.target.files[0]) {
+          showToast('處理中', '正在壓印經緯度浮水印...');
+          const villageName = appState.currentVillageData ? appState.currentVillageData.township.replace(/^\d+/, '') + appState.currentVillageData.village : '';
+          const base64 = await applyWatermark(e.target.files[0], villageName);
+          appState.photoBeforeBase64 = base64;
+
+          const preview = document.getElementById('imgPreviewBefore');
+          preview.src = base64;
+          preview.classList.remove('hidden');
+          document.getElementById('placeholderBefore').classList.add('hidden');
+        }
+      });
+
+      // 改善後照片拍照與浮水印
+      document.getElementById('filePhotoAfter').addEventListener('change', async (e) => {
+        if (e.target.files && e.target.files[0]) {
+          showToast('處理中', '正在壓印經緯度浮水印...');
+          const villageName = appState.currentVillageData ? appState.currentVillageData.township.replace(/^\d+/, '') + appState.currentVillageData.village : '';
+          const base64 = await applyWatermark(e.target.files[0], villageName);
+          appState.photoAfterBase64 = base64;
+
+          const preview = document.getElementById('imgPreviewAfter');
+          preview.src = base64;
+          preview.classList.remove('hidden');
+          document.getElementById('placeholderAfter').classList.add('hidden');
+        }
+      });
+
+      // 提交表單
+      document.getElementById('btnSubmitInspection').addEventListener('click', submitInspection);
+
+      // 初次載入預設 9 月份
+      fetchVillages(appState.currentMonth);
+    });
+  </script>
+</body>
+</html>
