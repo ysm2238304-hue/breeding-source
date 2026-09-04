@@ -10,7 +10,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
-    /* iOS 霧面毛玻璃與原生質感 */
     .ios-blur {
       background: rgba(255, 255, 255, 0.85);
       backdrop-filter: blur(20px);
@@ -21,11 +20,9 @@
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
-    /* 隱藏滾動條但保持可滾動 */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* Leaflet 原生樣式覆寫：重構為高級戰情卡片 */
     .leaflet-popup-content-wrapper {
       background: rgba(255, 255, 255, 0.92) !important;
       backdrop-filter: blur(25px) !important;
@@ -54,7 +51,6 @@
       text-align: center !important;
       padding: 0 !important;
     }
-    /* 脈動呼吸燈動畫 */
     @keyframes pulse-dot {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.4; transform: scale(0.85); }
@@ -97,45 +93,37 @@
     </div>
 
     <!-- 13 鄉鎮動態膠囊橫向滑動列 -->
-    <div id="townshipPillBar" class="pointer-events-auto flex gap-1.5 overflow-x-auto no-scrollbar py-1">
-      <!-- 程式動態渲染膠囊按鈕 -->
-    </div>
+    <div id="townshipPillBar" class="pointer-events-auto flex gap-1.5 overflow-x-auto no-scrollbar py-1"></div>
   </header>
 
   <!-- 右側懸浮控制鈕群 (FAB) -->
   <aside class="absolute right-4 bottom-8 z-20 flex flex-col gap-3 pointer-events-auto">
-    <!-- 清單抽屜按鈕 -->
     <button onclick="toggleDrawer(true)" class="relative w-12 h-12 rounded-full ios-blur shadow-xl border border-white/80 flex items-center justify-center text-gray-700 active:scale-95 transition">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
       <span id="pendingBadge" class="hidden absolute -top-1 -right-1 bg-[#FF3B30] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">0</span>
     </button>
-    <!-- 定位回到我的位置 -->
     <button onclick="locateUser()" class="w-12 h-12 rounded-full ios-blur shadow-xl border border-white/80 flex items-center justify-center text-[#007AFF] active:scale-95 transition">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
     </button>
-    <!-- 同步試算表按鈕 -->
     <button onclick="loadVillageData()" class="w-12 h-12 rounded-full ios-blur shadow-xl border border-white/80 flex items-center justify-center text-gray-700 active:scale-95 transition">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
     </button>
   </aside>
 
-  <!-- 右側滑出式任務清單抽屜 (Drawer) -->
+  <!-- 右側滑出式任務清單抽屜 -->
   <div id="listDrawer" class="fixed inset-y-0 right-0 z-30 w-full max-w-sm bg-[#F2F2F7] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
     <div class="ios-blur px-4 py-3 border-b border-gray-200 flex items-center justify-between">
       <h2 class="text-base font-bold text-gray-900">村里任務清單</h2>
       <button onclick="toggleDrawer(false)" class="w-8 h-8 rounded-full bg-gray-200/80 flex items-center justify-center text-gray-600 font-bold active:scale-90">✕</button>
     </div>
-    <div id="villageCardContainer" class="flex-1 overflow-y-auto p-4 space-y-3">
-      <!-- 卡片由 JS 產生 -->
-    </div>
+    <div id="villageCardContainer" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
   </div>
   <div id="drawerOverlay" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/40 z-25 hidden"></div>
 
-  <!-- 巡檢詳細填報彈窗 (Bottom Sheet Modal) -->
+  <!-- 巡檢詳細填報彈窗 (Bottom Sheet) -->
   <div id="inspectionModal" class="fixed inset-0 z-40 hidden flex items-end justify-center">
     <div onclick="closeInspectionModal()" class="absolute inset-0 bg-black/50 backdrop-blur-xs"></div>
-    <div class="relative w-full max-w-lg max-h-[90vh] bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in slide-in-from-bottom duration-300">
-      <!-- 頂部拉桿與關閉鈕 -->
+    <div class="relative w-full max-w-lg max-h-[92vh] bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in slide-in-from-bottom duration-300">
       <div class="flex flex-col items-center pt-3 pb-2 px-4 border-b border-gray-100 bg-[#F9F9FB]">
         <div class="w-10 h-1 bg-gray-300 rounded-full mb-2"></div>
         <div class="w-full flex items-center justify-between">
@@ -144,9 +132,8 @@
         </div>
       </div>
 
-      <!-- 表單內容滾動區 -->
       <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-        <!-- 基本資訊鎖定區 -->
+        <!-- 基本資訊 -->
         <div class="bg-gray-50 p-3 rounded-2xl border border-gray-200/80 space-y-1.5">
           <div class="flex justify-between"><span class="text-gray-500 font-medium">檢查村里</span><span id="formVillageFull" class="font-bold text-gray-800">--</span></div>
           <div class="flex justify-between"><span class="text-gray-500 font-medium">檢查時間</span><span id="formDate" class="font-bold text-gray-800">--</span></div>
@@ -187,13 +174,12 @@
             </select>
             <button onclick="addItem()" class="bg-[#007AFF] text-white px-3 py-2 rounded-xl font-bold active:scale-95">新增</button>
           </div>
-          <!-- 已選項目標籤清單 -->
           <div id="selectedItemsContainer" class="space-y-1.5 pt-1">
             <p id="emptyItemTip" class="text-gray-400 italic text-center py-2">現場無任何缺失 (全部 0 處)</p>
           </div>
         </div>
 
-        <!-- 總計與合格判定 -->
+        <!-- 總計與判定 -->
         <div class="bg-gray-50 p-3 rounded-2xl border border-gray-200 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="font-bold text-gray-700">缺失總計：</span>
@@ -212,26 +198,47 @@
           </div>
         </div>
 
-        <!-- 原生無浮水印雙鏡頭拍照卡片 -->
+        <!-- iOS 雙鏡頭照片卡片區 -->
         <div class="grid grid-cols-2 gap-3">
-          <!-- 改善前 -->
-          <div class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px]">
-            <input type="file" id="beforeInput" accept="image/*" capture="environment" onchange="handleImage(this, 'before')" class="absolute inset-0 opacity-0 cursor-pointer z-10">
-            <img id="beforePreview" class="hidden absolute inset-0 w-full h-full object-cover">
-            <div id="beforePlaceholder" class="space-y-1 pointer-events-none">
-              <span class="text-2xl">📸</span>
-              <p class="font-bold text-gray-700">改善前相片</p>
-              <p class="text-[10px] text-gray-400">點擊開啟現場相機</p>
+          <!-- 改善前照片卡片 -->
+          <div id="cardBefore" class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[145px] transition-all">
+            <!-- 未選取佔位 -->
+            <div id="beforePlaceholder" onclick="openPhotoPicker('before')" class="space-y-1.5 cursor-pointer py-4 w-full flex flex-col items-center justify-center">
+              <div class="w-10 h-10 rounded-full bg-blue-50 text-[#007AFF] flex items-center justify-center text-xl">📸</div>
+              <p class="font-bold text-gray-800 text-xs">改善前相片</p>
+              <p class="text-[10px] text-gray-400">點擊拍照或選取</p>
+            </div>
+            <!-- 已上傳預覽 -->
+            <div id="beforePreviewContainer" class="hidden absolute inset-0 w-full h-full group">
+              <img id="beforeImg" onclick="viewFullscreenImage('before')" class="w-full h-full object-cover cursor-pointer">
+              <button onclick="removeImage('before', event)" class="absolute top-2 right-2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center font-bold text-xs shadow-md active:scale-90">✕</button>
+              <div class="absolute bottom-1.5 left-2 right-2 bg-black/50 backdrop-blur-xs text-white text-[9px] py-0.5 rounded px-1.5 truncate pointer-events-none">改善前 (點擊放大)</div>
+            </div>
+            <!-- 處理中 Spinner -->
+            <div id="beforeSpinner" class="hidden absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-1 z-10">
+              <div class="w-5 h-5 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin"></div>
+              <span class="text-[10px] text-gray-500 font-bold">處理中...</span>
             </div>
           </div>
-          <!-- 改善後 -->
-          <div class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px]">
-            <input type="file" id="afterInput" accept="image/*" capture="environment" onchange="handleImage(this, 'after')" class="absolute inset-0 opacity-0 cursor-pointer z-10">
-            <img id="afterPreview" class="hidden absolute inset-0 w-full h-full object-cover">
-            <div id="afterPlaceholder" class="space-y-1 pointer-events-none">
-              <span class="text-2xl">📸</span>
-              <p class="font-bold text-gray-700">改善後相片</p>
-              <p class="text-[10px] text-gray-400">點擊開啟現場相機</p>
+
+          <!-- 改善後照片卡片 -->
+          <div id="cardAfter" class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[145px] transition-all">
+            <!-- 未選取佔位 -->
+            <div id="afterPlaceholder" onclick="openPhotoPicker('after')" class="space-y-1.5 cursor-pointer py-4 w-full flex flex-col items-center justify-center">
+              <div class="w-10 h-10 rounded-full bg-blue-50 text-[#007AFF] flex items-center justify-center text-xl">📸</div>
+              <p class="font-bold text-gray-800 text-xs">改善後相片</p>
+              <p class="text-[10px] text-gray-400">點擊拍照或選取</p>
+            </div>
+            <!-- 已上傳預覽 -->
+            <div id="afterPreviewContainer" class="hidden absolute inset-0 w-full h-full group">
+              <img id="afterImg" onclick="viewFullscreenImage('after')" class="w-full h-full object-cover cursor-pointer">
+              <button onclick="removeImage('after', event)" class="absolute top-2 right-2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center font-bold text-xs shadow-md active:scale-90">✕</button>
+              <div class="absolute bottom-1.5 left-2 right-2 bg-black/50 backdrop-blur-xs text-white text-[9px] py-0.5 rounded px-1.5 truncate pointer-events-none">改善後 (點擊放大)</div>
+            </div>
+            <!-- 處理中 Spinner -->
+            <div id="afterSpinner" class="hidden absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-1 z-10">
+              <div class="w-5 h-5 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin"></div>
+              <span class="text-[10px] text-gray-500 font-bold">處理中...</span>
             </div>
           </div>
         </div>
@@ -246,7 +253,34 @@
     </div>
   </div>
 
-  <!-- iOS Toast 提示元件 -->
+  <!-- iOS 原生 Action Sheet 選單 -->
+  <div id="actionSheetModal" class="fixed inset-0 z-50 hidden flex items-end justify-center">
+    <div onclick="closeActionSheet()" class="absolute inset-0 bg-black/40 backdrop-blur-xs"></div>
+    <div class="relative w-full max-w-sm p-4 space-y-2 z-10 animate-in slide-in-from-bottom duration-200">
+      <div class="bg-white/90 ios-blur rounded-2xl overflow-hidden shadow-xl border border-white/60">
+        <div id="actionSheetTitle" class="py-2.5 text-center text-xs font-semibold text-gray-400 border-b border-gray-100">選擇相片來源</div>
+        <button onclick="triggerFilePicker('camera')" class="w-full py-3.5 text-center text-sm font-semibold text-[#007AFF] active:bg-gray-100 border-b border-gray-100 flex items-center justify-center gap-2">
+          <span>📷 拍攝現場相片</span>
+        </button>
+        <button onclick="triggerFilePicker('album')" class="w-full py-3.5 text-center text-sm font-semibold text-[#007AFF] active:bg-gray-100 flex items-center justify-center gap-2">
+          <span>🖼️ 從照片圖庫選取</span>
+        </button>
+      </div>
+      <button onclick="closeActionSheet()" class="w-full py-3.5 bg-white rounded-2xl text-center text-sm font-bold text-gray-800 shadow-lg active:bg-gray-100">取消</button>
+    </div>
+  </div>
+
+  <!-- 全螢幕相片 Lightbox 預覽 -->
+  <div id="lightboxModal" onclick="closeLightbox()" class="fixed inset-0 z-50 hidden bg-black/95 flex items-center justify-center p-4">
+    <img id="lightboxImg" class="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl">
+    <button onclick="closeLightbox()" class="absolute top-6 right-6 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center font-bold text-base">✕</button>
+  </div>
+
+  <!-- 隱藏原生 File Inputs (相機與圖庫雙通道) -->
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" onchange="onFileSelected(this)">
+  <input type="file" id="albumInput" accept="image/*" class="hidden" onchange="onFileSelected(this)">
+
+  <!-- iOS Toast 提示 -->
   <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none hidden transition-all duration-300">
     <div id="toastInner" class="ios-blur-dark text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 border border-white/20">
       <span id="toastIcon">✓</span>
@@ -254,11 +288,10 @@
     </div>
   </div>
 
-  <!-- JavaScript 核心驅動腳本 -->
+  <!-- JavaScript 核心腳本 -->
   <script>
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3LPVS6kktJHfY3RdyRJZey6FKoR32adalS0mhNOXTkcqr83Bs0Duvhw8c_7U8Mzc/exec";
 
-    // 南投縣 13 鄉鎮市核心座標映射表 (精確聚落中心)
     const TOWN_COORDS = {
       '南投市': [23.9099, 120.6853], '埔里鎮': [23.9664, 120.9695], '草屯鎮': [23.9822, 120.6845],
       '竹山鎮': [23.7576, 120.6846], '集集鎮': [23.8291, 120.7836], '名間鄉': [23.8384, 120.7027],
@@ -273,11 +306,11 @@
     let villageData = [];
     let currentTownFilter = '全部';
     let currentTask = null;
-    let activeItems = {}; // { out_4: 1 }
+    let activeItems = {};
     let imgBeforeBase64 = "";
     let imgAfterBase64 = "";
+    let activeTargetSlot = null; // 'before' 或 'after'
 
-    // 1. 初始化地圖
     window.addEventListener('DOMContentLoaded', () => {
       map = L.map('map', { zoomControl: false }).setView([23.9037, 120.85], 11);
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -289,7 +322,6 @@
       loadVillageData();
     });
 
-    // 2. 渲染 13 鄉鎮膠囊篩選列
     function renderTownshipPills() {
       const bar = document.getElementById('townshipPillBar');
       bar.innerHTML = ALL_TOWNS.map(t => {
@@ -311,7 +343,6 @@
       }
     }
 
-    // 3. 載入村里巡檢清單 (GET)
     async function loadVillageData() {
       showToast("🔄 同步中...", "info");
       const month = document.getElementById('monthSelect').value;
@@ -335,9 +366,7 @@
       loadVillageData();
     }
 
-    // 4. 更新地圖標記與抽屜清單
     function renderMarkersAndList() {
-      // 清空舊 Marker
       markers.forEach(m => map.removeLayer(m));
       markers = [];
 
@@ -347,17 +376,14 @@
 
       const cardContainer = document.getElementById('villageCardContainer');
       cardContainer.innerHTML = "";
-
       let pendingCount = 0;
 
       filtered.forEach(v => {
         if (!v.completed) pendingCount++;
 
-        // 計算座標 (若無精確座標則使用鄉鎮座標微調)
         let latLng = TOWN_COORDS[v.town] || [23.9037, 120.6860];
         latLng = [latLng[0] + (Math.random() - 0.5) * 0.015, latLng[1] + (Math.random() - 0.5) * 0.015];
 
-        // 地圖圖釘
         const color = v.completed ? '#34C759' : '#FF9500';
         const customIcon = L.divIcon({
           className: 'custom-pin',
@@ -368,7 +394,6 @@
 
         const marker = L.marker(latLng, { icon: customIcon }).addTo(map);
 
-        // 高級戰情彈窗內容 (Leaflet Popup)
         const popupHtml = `
           <div class="p-3.5 space-y-2.5 min-w-[210px]">
             <div class="flex items-center justify-between border-b border-gray-100 pb-2">
@@ -398,7 +423,6 @@
         marker.bindPopup(popupHtml);
         markers.push(marker);
 
-        // 卡片清單項目
         const card = document.createElement('div');
         card.className = "bg-white p-3.5 rounded-2xl shadow-sm border border-gray-200/80 flex items-center justify-between";
         card.innerHTML = `
@@ -417,7 +441,6 @@
         cardContainer.appendChild(card);
       });
 
-      // 更新紅點 Badge
       const badge = document.getElementById('pendingBadge');
       if (pendingCount > 0) {
         badge.textContent = pendingCount;
@@ -455,26 +478,21 @@
       }
     }
 
-    // 5. 巡檢彈窗填報邏輯
+    // 巡檢彈窗控制
     function openInspectionModal(vJsonEncoded) {
       currentTask = JSON.parse(decodeURIComponent(vJsonEncoded));
       activeItems = {};
-      imgBeforeBase64 = "";
-      imgAfterBase64 = "";
+      clearImageSlot('before');
+      clearImageSlot('after');
 
       document.getElementById('modalTitle').textContent = `${currentTask.town}-${currentTask.village} 巡檢填報`;
       document.getElementById('formVillageFull').textContent = currentTask.villageFull;
 
-      // 產生今日民國年格式
       const now = new Date();
       const rocYear = now.getFullYear() - 1911;
       const m = String(now.getMonth() + 1).padStart(2, '0');
       const d = String(now.getDate()).padStart(2, '0');
       document.getElementById('formDate').textContent = `${rocYear} 年 ${m} 月 ${d} 日`;
-
-      // 重設相片預覽
-      resetImageInput('before');
-      resetImageInput('after');
 
       renderActiveItems();
       toggleDrawer(false);
@@ -485,15 +503,12 @@
       document.getElementById('inspectionModal').classList.add('hidden');
     }
 
+    // 20 項缺失增減邏輯
     function addItem() {
       const sel = document.getElementById('itemSelector');
       const key = sel.value;
       if (!key) return;
-      if (!activeItems[key]) {
-        activeItems[key] = 1;
-      } else {
-        activeItems[key]++;
-      }
+      activeItems[key] = (activeItems[key] || 0) + 1;
       sel.value = "";
       renderActiveItems();
     }
@@ -544,54 +559,127 @@
       return opt ? opt.textContent : key;
     }
 
-    // 6. 相機照片輕量無損壓縮 (徹底移除浮水印)
-    function handleImage(input, prefix) {
-      if (input.files && input.files[0]) {
-        const file = input.files[0];
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = new Image();
-          img.onload = () => {
-            // 等比縮放 (長邊最大 1280px)
-            let w = img.width, h = img.height;
-            const maxDim = 1280;
-            if (w > maxDim || h > maxDim) {
-              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
-              else { w = Math.round((w * maxDim) / h); h = maxDim; }
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, w, h);
+    // ==============================================================================
+    // iOS 原生 Action Sheet 與照片優化引擎
+    // ==============================================================================
+    function openPhotoPicker(slot) {
+      activeTargetSlot = slot;
+      const titleText = (slot === 'before') ? "選擇【改善前】相片來源" : "選擇【改善後】相片來源";
+      document.getElementById('actionSheetTitle').textContent = titleText;
+      document.getElementById('actionSheetModal').classList.remove('hidden');
+    }
 
-            // 轉為純淨 Base64 JPEG (無浮水印)
-            const compressed = canvas.toDataURL('image/jpeg', 0.85);
-            if (prefix === 'before') {
-              imgBeforeBase64 = compressed;
-              document.getElementById('beforePreview').src = compressed;
-              document.getElementById('beforePreview').classList.remove('hidden');
-              document.getElementById('beforePlaceholder').classList.add('hidden');
-            } else {
-              imgAfterBase64 = compressed;
-              document.getElementById('afterPreview').src = compressed;
-              document.getElementById('afterPreview').classList.remove('hidden');
-              document.getElementById('afterPlaceholder').classList.add('hidden');
-            }
-          };
-          img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
+    function closeActionSheet() {
+      document.getElementById('actionSheetModal').classList.add('hidden');
+    }
+
+    function triggerFilePicker(mode) {
+      closeActionSheet();
+      const inputId = (mode === 'camera') ? 'cameraInput' : 'albumInput';
+      const fileInput = document.getElementById(inputId);
+      fileInput.value = ""; // 重設以支援重複選取相同檔案
+      fileInput.click();
+    }
+
+    async function onFileSelected(input) {
+      if (!input.files || !input.files[0] || !activeTargetSlot) return;
+      const file = input.files[0];
+      const slot = activeTargetSlot;
+
+      const spinner = document.getElementById(`${slot}Spinner`);
+      spinner.classList.remove('hidden');
+
+      try {
+        const base64Jpeg = await processImageFile(file);
+        if (slot === 'before') {
+          imgBeforeBase64 = base64Jpeg;
+          document.getElementById('beforeImg').src = base64Jpeg;
+          document.getElementById('beforePreviewContainer').classList.remove('hidden');
+          document.getElementById('beforePlaceholder').classList.add('hidden');
+        } else {
+          imgAfterBase64 = base64Jpeg;
+          document.getElementById('afterImg').src = base64Jpeg;
+          document.getElementById('afterPreviewContainer').classList.remove('hidden');
+          document.getElementById('afterPlaceholder').classList.add('hidden');
+        }
+      } catch (err) {
+        showToast("相片解析異常，請重新選取", "error");
+      } finally {
+        spinner.classList.add('hidden');
       }
     }
 
-    function resetImageInput(prefix) {
-      document.getElementById(`${prefix}Input`).value = "";
-      document.getElementById(`${prefix}Preview`).classList.add('hidden');
-      document.getElementById(`${prefix}Placeholder`).classList.remove('hidden');
+    // 利用 createImageBitmap 自動校正 EXIF 轉向與長邊降採樣
+    function processImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const blobUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(blobUrl);
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          const maxDim = 1280;
+
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          // 導出高品質無浮水印 JPEG Base64
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(dataUrl);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          reject(new Error("影像載入失敗"));
+        };
+        img.src = blobUrl;
+      });
     }
 
-    // 7. 提交巡檢並向 GAS 送出 (CORS 穿透防禦架構)
+    function removeImage(slot, event) {
+      if (event) event.stopPropagation();
+      clearImageSlot(slot);
+    }
+
+    function clearImageSlot(slot) {
+      if (slot === 'before') {
+        imgBeforeBase64 = "";
+        document.getElementById('beforeImg').src = "";
+        document.getElementById('beforePreviewContainer').classList.add('hidden');
+        document.getElementById('beforePlaceholder').classList.remove('hidden');
+      } else {
+        imgAfterBase64 = "";
+        document.getElementById('afterImg').src = "";
+        document.getElementById('afterPreviewContainer').classList.add('hidden');
+        document.getElementById('afterPlaceholder').classList.remove('hidden');
+      }
+    }
+
+    function viewFullscreenImage(slot) {
+      const src = (slot === 'before') ? imgBeforeBase64 : imgAfterBase64;
+      if (src) {
+        document.getElementById('lightboxImg').src = src;
+        document.getElementById('lightboxModal').classList.remove('hidden');
+      }
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightboxModal').classList.add('hidden');
+    }
+
+    // 提交巡檢
     async function submitInspection() {
       const submitBtn = document.getElementById('submitBtn');
       submitBtn.disabled = true;
@@ -605,7 +693,6 @@
       const month = document.getElementById('monthSelect').value;
       const status = document.querySelector('input[name="qualifyRadio"]:checked').value;
 
-      // 構建標準資料封包 (案號留空)
       const payload = {
         month: parseInt(month, 10),
         date: dateStr,
@@ -613,20 +700,18 @@
         village: currentTask.village,
         villageFull: currentTask.villageFull,
         unit: "南投縣政府環境保護局",
-        caseNumber: "", // 作業規範：案號欄位徹底留空
+        caseNumber: "",
         status: status,
-        items: activeItems, // 如 { out_4: 1 }
+        items: activeItems,
         imgBefore: imgBeforeBase64,
         imgAfter: imgAfterBase64
       };
 
       try {
-        // 設定 25 秒防呆逾時
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-        // 核心解法：採用 text/plain 規避瀏覽器 OPTIONS 預檢阻擋
-        const resp = await fetch(GAS_API_URL, {
+        await fetch(GAS_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload),
@@ -634,7 +719,6 @@
         });
         clearTimeout(timeoutId);
 
-        // 樂觀 UI 即時刷新
         currentTask.completed = true;
         currentTask.actualDate = dateStr;
         renderMarkersAndList();
@@ -644,7 +728,6 @@
         showToast("✓ 巡檢已同步，Word產檔排程中！", "success");
 
       } catch (err) {
-        // 即便被 302 跨域重導向干擾，主表資料通常已成功寫入
         currentTask.completed = true;
         currentTask.actualDate = dateStr;
         renderMarkersAndList();
